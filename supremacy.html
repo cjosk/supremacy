@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Supremacy Guild Paneli</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Darker gray */
+        }
+        .table-container::-webkit-scrollbar, .battle-list::-webkit-scrollbar, .kill-list::-webkit-scrollbar, .alert-list::-webkit-scrollbar, .battle-report-players::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track, .battle-list::-webkit-scrollbar-track, .kill-list::-webkit-scrollbar-track, .alert-list::-webkit-scrollbar-track, .battle-report-players::-webkit-scrollbar-track {
+            background: #1F2937;
+        }
+        .table-container::-webkit-scrollbar-thumb, .battle-list::-webkit-scrollbar-thumb, .kill-list::-webkit-scrollbar-thumb, .alert-list::-webkit-scrollbar-thumb, .battle-report-players::-webkit-scrollbar-thumb {
+            background: #4B5563;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover, .battle-list::-webkit-scrollbar-thumb:hover, .kill-list::-webkit-scrollbar-thumb:hover, .alert-list::-webkit-scrollbar-thumb:hover, .battle-report-players::-webkit-scrollbar-thumb:hover {
+            background: #6B7280;
+        }
+        .loader {
+            border: 4px solid #374151;
+            border-top: 4px solid #EF4444;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .nav-btn { transition: all 0.2s ease-in-out; }
+        .nav-btn.active { background-color: #DC2626; color: white; }
+        #player-modal { backdrop-filter: blur(5px); }
+    </style>
+</head>
+<body class="text-gray-200 min-h-screen antialiased">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 pb-6 border-b border-gray-700/50">
+            <!-- Logo ve Başlık -->
+            <div class="flex items-center gap-4">
+                <img src="https://i.hizliresim.com/pu29soc.png" alt="Team Supremacy Logo" class="h-16 w-auto">
+                <div>
+                    <h1 class="text-3xl font-extrabold text-white tracking-tight">Team Supremacy</h1>
+                    <p class="text-gray-400 text-sm">Guild Yönetim Paneli</p>
+                </div>
+            </div>
+            <!-- Navigasyon -->
+            <nav class="flex mt-4 md:mt-0 bg-gray-800/50 backdrop-blur-sm border border-gray-700 p-1.5 rounded-xl">
+                <button id="nav-dashboard" class="nav-btn active py-2 px-6 rounded-lg font-semibold">Genel Bakış</button>
+                <button id="nav-members" class="nav-btn py-2 px-6 rounded-lg font-semibold text-gray-400">Üye Listesi</button>
+                <button id="nav-battles" class="nav-btn py-2 px-6 rounded-lg font-semibold text-gray-400">Savaşlar</button>
+                <button id="nav-tracking" class="nav-btn py-2 px-6 rounded-lg font-semibold text-gray-400 flex items-center gap-2">🔔 Takip</button>
+            </nav>
+        </header>
+
+        <!-- Durum Mesajları ve Yükleyici -->
+        <div id="status-container" class="flex justify-center items-center my-8 h-24">
+            <div id="loader" class="loader"></div>
+            <div id="status-message" class="text-center text-lg"></div>
+        </div>
+
+        <!-- Sayfa İçerikleri -->
+        <main id="content-container" class="hidden opacity-0 transition-opacity duration-500">
+            <!-- DASHBOARD SAYFASI -->
+            <div id="dashboard-page">
+                <div id="guild-info" class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 p-6 rounded-xl shadow-lg max-w-5xl mx-auto mb-8"></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <div id="top-contributors" class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl"></div>
+                    <div id="top-pvp" class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl"></div>
+                    <div id="top-pve" class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl"></div>
+                    <div id="top-gathering" class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl"></div>
+                    <div id="top-deaths" class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl"></div>
+                </div>
+            </div>
+
+            <!-- ÜYE LİSTESİ SAYFASI -->
+            <div id="members-page" class="hidden">
+                 <div class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-lg p-4 sm:p-6">
+                    <h2 class="text-2xl font-bold mb-4 text-center text-red-400">Guild Üye Listesi</h2>
+                    <div class="table-container overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-700">
+                            <thead class="bg-gray-900/70">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-red-400 uppercase tracking-wider">Oyuncu Adı</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Kill Fame</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Death Fame</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">PvE Fame</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Gathering Fame</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Crafting Fame</th>
+                                </tr>
+                            </thead>
+                            <tbody id="member-list-body" class="bg-gray-800 divide-y divide-gray-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- SAVAŞLAR SAYFASI -->
+            <div id="battles-page" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1 bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
+                        <h2 class="text-xl font-bold text-red-400 mb-4">Son Haftanın Önemli Savaşları</h2>
+                        <div id="battles-list-container" class="battle-list space-y-3 max-h-[70vh] overflow-y-auto pr-2"></div>
+                    </div>
+                    <div id="battle-report-container" class="lg:col-span-2 bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
+                        <div class="flex items-center justify-center h-full text-gray-400">Detayları görmek için bir savaş seçin.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAKİP SAYFASI -->
+            <div id="tracking-page" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
+                        <h3 class="text-lg font-bold text-yellow-400 mb-3">İnaktif Oyuncular (7+ gün)</h3>
+                        <p class="text-sm text-gray-400 mb-4">7 günden uzun süredir kill veya death kaydı olmayan oyuncular. Bu analiz tüm üyeleri kontrol ettiği için biraz zaman alabilir.</p>
+                        <button id="inactive-check-btn" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">Analizi Başlat</button>
+                        <div id="inactive-list-container" class="mt-4"></div>
+                    </div>
+                    <div class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
+                        <h3 class="text-lg font-bold text-orange-400 mb-3">Riskli Oyuncular</h3>
+                        <p class="text-sm text-gray-400 mb-4">Son haftadaki büyük savaşlarda (15+ katılımcı) ölen guild üyeleri.</p>
+                        <div id="risky-list-container" class="mt-4 alert-list max-h-80 overflow-y-auto"></div>
+                    </div>
+                </div>
+                 <div class="mt-6 bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
+                    <h3 class="text-lg font-bold text-blue-400 mb-3">Takip Listesi Notu</h3>
+                    <p class="text-sm text-gray-400">"Fame artışı duraksayanlar" özelliğinin eklenebilmesi için Albion Online API'sinin geçmişe dönük fame verilerini sağlaması gerekmektedir. Mevcut API bu imkanı sunmadığı için bu özellik şu an için eklenememektedir.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Oyuncu Profili Modalı -->
+    <div id="player-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
+        <div id="modal-content" class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h2 id="modal-player-name" class="text-2xl font-bold text-white"></h2>
+                <button id="modal-close-btn" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div id="modal-body" class="p-6 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL DEĞİŞKENLER ---
+        let guildMembersData = [];
+        
+        // --- DOM ELEMENTLERİ ---
+        const statusContainer = document.getElementById('status-container');
+        const loader = document.getElementById('loader');
+        const statusMessage = document.getElementById('status-message');
+        const contentContainer = document.getElementById('content-container');
+        const guildInfoDiv = document.getElementById('guild-info');
+        const memberListBody = document.getElementById('member-list-body');
+        const navDashboard = document.getElementById('nav-dashboard');
+        const navMembers = document.getElementById('nav-members');
+        const navBattles = document.getElementById('nav-battles');
+        const navTracking = document.getElementById('nav-tracking');
+        const dashboardPage = document.getElementById('dashboard-page');
+        const membersPage = document.getElementById('members-page');
+        const battlesPage = document.getElementById('battles-page');
+        const trackingPage = document.getElementById('tracking-page');
+        const battlesListContainer = document.getElementById('battles-list-container');
+        const battleReportContainer = document.getElementById('battle-report-container');
+        const playerModal = document.getElementById('player-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const modalPlayerName = document.getElementById('modal-player-name');
+        const modalBody = document.getElementById('modal-body');
+        const inactiveCheckBtn = document.getElementById('inactive-check-btn');
+        const inactiveListContainer = document.getElementById('inactive-list-container');
+        const riskyListContainer = document.getElementById('risky-list-container');
+
+        // --- SABİTLER ---
+        const GUILD_ID = 'MsXlz1fUQFySJSqG4HiGbA';
+        const BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo';
+        const RENDER_URL = 'https://render.albiononline.com/v1/item/';
+        const PROXY_URL = 'https://proxy.cors.sh/';
+        const API_KEY = 'temp_c2020bf1f34ac382b3647141b024d3a3';
+        const HEADERS = { 'x-cors-api-key': API_KEY };
+        
+        // --- UYGULAMA BAŞLATMA ---
+        window.addEventListener('load', initializeApp);
+
+        async function initializeApp() {
+            setupNavigation();
+            setupModal();
+            showStatus('Guild verileri yükleniyor...', 'loading');
+
+            try {
+                const [guildDetails, guildMembers] = await Promise.all([
+                    fetchApi(`/guilds/${GUILD_ID}`),
+                    fetchApi(`/guilds/${GUILD_ID}/members`),
+                ]);
+
+                showStatus('Savaş verileri taranıyor...', 'loading');
+                const battles = await fetchAllBattles();
+
+                guildMembersData = guildMembers;
+                const guildBattles = battles.filter(battle => battle.guilds && battle.guilds[GUILD_ID]);
+                const importantBattles = guildBattles.filter(b => b.totalPlayers >= 15);
+
+                displayGuildInfo(guildDetails);
+                displayDashboard(guildMembers);
+                displayMembers(guildMembers);
+                displayBattleList(importantBattles);
+                displayTrackingDashboard(guildMembers, importantBattles);
+
+                statusContainer.classList.add('hidden');
+                contentContainer.classList.remove('hidden');
+                setTimeout(() => contentContainer.classList.remove('opacity-0'), 50);
+
+            } catch (error) {
+                console.error('Veri çekme hatası:', error);
+                showStatus('Lonca bilgileri getirilemedi. Proxy servisi veya anahtar geçersiz olabilir.', 'error');
+            }
+        }
+
+        // --- API İSTEK FONKSİYONU (Rate Limiting ile) ---
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        async function fetchApi(endpoint, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                const response = await fetch(`${PROXY_URL}${BASE_URL}${endpoint}`, { headers: HEADERS });
+                if (response.status === 429) {
+                    console.warn(`Rate limit hit for ${endpoint}. Retrying in ${i + 1}s...`);
+                    await sleep(1000 * (i + 1));
+                    continue;
+                }
+                if (!response.ok) throw new Error(`API isteği başarısız: ${endpoint} (Status: ${response.status})`);
+                return response.json();
+            }
+            throw new Error(`API isteği ${retries} deneme sonrası başarısız: ${endpoint}`);
+        }
+
+        async function fetchAllBattles(range = 'week', limit = 51) {
+            let allBattles = [];
+            let offset = 0;
+            while (true) {
+                const page = await fetchApi(`/battles?range=${range}&sort=recent&limit=${limit}&offset=${offset}`);
+                if (!page || page.length === 0) break; 
+                allBattles = allBattles.concat(page);
+                if (page.length < limit) break;
+                offset += limit;
+                if (offset >= 1000) break;
+                await sleep(200); 
+            }
+            return allBattles;
+        }
+        
+        // --- NAVİGASYON VE MODAL ---
+        function setupNavigation() {
+            navDashboard.addEventListener('click', () => showPage('dashboard'));
+            navMembers.addEventListener('click', () => showPage('members'));
+            navBattles.addEventListener('click', () => showPage('battles'));
+            navTracking.addEventListener('click', () => showPage('tracking'));
+            inactiveCheckBtn.addEventListener('click', startInactiveAnalysis);
+        }
+        
+        function setupModal() {
+            modalCloseBtn.addEventListener('click', () => playerModal.classList.add('hidden'));
+            playerModal.addEventListener('click', (e) => { if (e.target === playerModal) playerModal.classList.add('hidden'); });
+        }
+
+        function showPage(pageName) {
+            const pages = { dashboard: dashboardPage, members: membersPage, battles: battlesPage, tracking: trackingPage };
+            const navs = { dashboard: navDashboard, members: navMembers, battles: navBattles, tracking: navTracking };
+
+            for (const page in pages) {
+                pages[page].classList.toggle('hidden', page !== pageName);
+                navs[page].classList.toggle('active', page === pageName);
+                navs[page].classList.toggle('text-gray-400', page !== pageName);
+            }
+        }
+
+        async function showPlayerProfile(playerId) {
+            const player = guildMembersData.find(m => m.Id === playerId);
+            if (!player) return;
+
+            modalPlayerName.textContent = player.Name;
+            playerModal.classList.remove('hidden');
+            modalBody.innerHTML = '<div class="flex justify-center items-center h-64"><div class="loader"></div></div>';
+
+            try {
+                const [kills, deaths] = await Promise.all([
+                    fetchApi(`/players/${playerId}/kills`),
+                    fetchApi(`/players/${playerId}/deaths`)
+                ]);
+                
+                const equipment = analyzeEquipment(kills);
+
+                modalBody.innerHTML = `
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-1 space-y-6">
+                            <div>
+                                <h3 class="text-lg font-bold text-red-400 mb-3">Fame Dağılımı</h3>
+                                ${createFameBar('PvP', player.KillFame, player.KillFame + player.DeathFame)}
+                                ${createFameBar('PvE', player.LifetimeStatistics.PvE.Total, 10000000)}
+                                ${createFameBar('Toplama', player.LifetimeStatistics.Gathering.All.Total, 10000000)}
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-red-400 mb-3">Sık Kullanılanlar</h3>
+                                <div class="flex flex-wrap gap-2">${Object.entries(equipment).map(([slot, item]) => item ? `<img src="${RENDER_URL}${item.Type}.png?quality=3" alt="${item.Type}" class="w-12 h-12 bg-gray-700 rounded-md border border-gray-600" title="${slot}">` : '').join('')}</div>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-2 space-y-6">
+                            <div>
+                                <h3 class="text-lg font-bold text-green-400 mb-3">Son Kills</h3>
+                                <ul class="kill-list space-y-2 max-h-64 overflow-y-auto pr-2">${kills.length > 0 ? kills.map(k => createEventHtml(k, 'kill')).join('') : '<li class="text-gray-400">Kayıt bulunamadı.</li>'}</ul>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-red-400 mb-3">Son Deaths</h3>
+                                <ul class="kill-list space-y-2 max-h-64 overflow-y-auto pr-2">${deaths.length > 0 ? deaths.map(d => createEventHtml(d, 'death')).join('') : '<li class="text-gray-400">Kayıt bulunamadı.</li>'}</ul>
+                            </div>
+                        </div>
+                    </div>`;
+            } catch (error) {
+                console.error("Profil verisi çekilemedi:", error);
+                modalBody.innerHTML = '<p class="text-red-400 text-center">Oyuncu profili yüklenemedi.</p>';
+            }
+        }
+
+        async function showBattleReport(battleId) {
+            battleReportContainer.innerHTML = '<div class="flex items-center justify-center h-full"><div class="loader"></div></div>';
+            try {
+                const report = await fetchApi(`/battles/${battleId}`);
+                
+                const teams = Object.values(report.guilds).sort((a,b) => Object.values(report.players).filter(p => p.guildId === b.id).length - Object.values(report.players).filter(p => p.guildId === a.id).length);
+                const team1 = teams[0] || { id: 'unknown1', name: 'Takım 1', players: [] };
+                const team2 = teams[1] || { id: 'unknown2', name: 'Takım 2', players: [] };
+
+                team1.players = [];
+                team2.players = [];
+                const others = { name: 'Diğerleri', players: [] };
+
+                for (const player of Object.values(report.players)) {
+                    if (player.guildId === team1.id) team1.players.push(player);
+                    else if (player.guildId === team2.id) team2.players.push(player);
+                    else others.players.push(player);
+                }
+
+                const renderTeam = (team) => {
+                    if (team.players.length === 0) return '';
+                    team.players.sort((a,b) => b.killFame - a.killFame);
+                    return `
+                        <div>
+                            <h4 class="text-lg font-bold ${team.id === GUILD_ID ? 'text-red-400' : 'text-white'} mb-2">${team.name} (${team.players.length} kişi)</h4>
+                            <ul class="battle-report-players space-y-2 max-h-96 overflow-y-auto pr-2">
+                                ${team.players.map(p => `
+                                    <li class="flex justify-between items-center bg-gray-900/50 p-2 rounded-md text-sm">
+                                        <span class="font-medium">${p.name}</span>
+                                        <div class="flex gap-3 text-xs">
+                                            <span class="font-semibold text-green-400">K: ${p.kills}</span>
+                                            <span class="font-semibold text-red-400">D: ${p.deaths}</span>
+                                            <span class="font-semibold text-yellow-400">F: ${p.killFame.toLocaleString('tr-TR')}</span>
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `;
+                };
+
+                battleReportContainer.innerHTML = `
+                    <h3 class="text-2xl font-bold text-center text-red-400 mb-4">Savaş Raporu</h3>
+                    <div class="flex justify-around text-center mb-4 p-3 bg-gray-900 rounded-lg">
+                        <div><div class="text-sm text-gray-400">Toplam Kill</div><div class="text-xl font-bold">${report.totalKills}</div></div>
+                        <div><div class="text-sm text-gray-400">Toplam Katılımcı</div><div class="text-xl font-bold">${Object.keys(report.players).length}</div></div>
+                        <div><div class="text-sm text-gray-400">Toplam Fame</div><div class="text-xl font-bold">${report.totalFame.toLocaleString('tr-TR')}</div></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${renderTeam(team1)}
+                        ${renderTeam(team2)}
+                        ${others.players.length > 0 ? renderTeam(others) : ''}
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error("Savaş raporu çekilemedi:", error);
+                battleReportContainer.innerHTML = '<div class="flex items-center justify-center h-full text-red-400">Savaş raporu yüklenemedi.</div>';
+            }
+        }
+
+        // --- GÖRÜNÜM FONKSİYONLARI ---
+        function displayGuildInfo(guild) {
+             guildInfoDiv.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center"><div><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Lonca Adı</h3><p class="text-xl font-bold text-white mt-1">${guild.Name}</p></div><div><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">İttifak</h3><p class="text-xl font-bold text-white mt-1">[${guild.AllianceTag || 'Yok'}]</p></div><div><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Üye Sayısı</h3><p class="text-xl font-bold text-red-400 mt-1">${guild.MemberCount}</p></div></div>`;
+        }
+        
+        function displayDashboard(members) {
+            const sortedByTotalFame = [...members].map(m => ({...m, TotalFame: m.KillFame + (m.LifetimeStatistics.PvE.Total || 0) + (m.LifetimeStatistics.Gathering.All.Total || 0) + (m.LifetimeStatistics.Crafting.Total || 0)})).sort((a, b) => b.TotalFame - a.TotalFame);
+            createTopPlayerCard('top-contributors', 'En Çok Katkı Yapanlar', sortedByTotalFame, m => m.TotalFame);
+            createTopPlayerCard('top-pvp', 'En Çok Kill Alanlar (Fame)', [...members].sort((a, b) => b.KillFame - a.KillFame), m => m.KillFame);
+            createTopPlayerCard('top-pve', 'En Aktif PvE Yapanlar', [...members].sort((a, b) => (b.LifetimeStatistics.PvE.Total || 0) - (a.LifetimeStatistics.PvE.Total || 0)), m => m.LifetimeStatistics.PvE.Total);
+            createTopPlayerCard('top-gathering', 'En İyi Toplayıcılar', [...members].sort((a, b) => (b.LifetimeStatistics.Gathering.All.Total || 0) - (a.LifetimeStatistics.Gathering.All.Total || 0)), m => m.LifetimeStatistics.Gathering.All.Total);
+            createTopPlayerCard('top-deaths', 'En Çok Ölenler (Fame)', [...members].sort((a, b) => b.DeathFame - a.DeathFame), m => m.DeathFame);
+        }
+
+        function createTopPlayerCard(elementId, title, sortedMembers, valueSelector) {
+            const container = document.getElementById(elementId);
+            let listHtml = sortedMembers.slice(0, 5).map((member, index) => `<li class="flex justify-between items-center py-2 px-3 rounded-md ${index % 2 === 0 ? 'bg-gray-700/50' : ''}"><span class="font-medium text-gray-200">${index + 1}. ${member.Name}</span><span class="font-bold text-red-400">${(valueSelector(member) || 0).toLocaleString('tr-TR')}</span></li>`).join('');
+            container.innerHTML = `<h3 class="text-lg font-bold text-red-400 mb-3">${title}</h3><ul class="space-y-1">${listHtml}</ul>`;
+        }
+
+        function displayMembers(members) {
+            members.sort((a, b) => b.KillFame - a.KillFame);
+            memberListBody.innerHTML = members.map(member => `<tr class="hover:bg-gray-700/50 transition-colors duration-200 cursor-pointer" onclick="showPlayerProfile('${member.Id}')"><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">${member.Name}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-red-400 font-semibold">${member.KillFame.toLocaleString('tr-TR')}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${member.DeathFame.toLocaleString('tr-TR')}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${(member.LifetimeStatistics.PvE.Total || 0).toLocaleString('tr-TR')}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${(member.LifetimeStatistics.Gathering.All.Total || 0).toLocaleString('tr-TR')}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${(member.LifetimeStatistics.Crafting.Total || 0).toLocaleString('tr-TR')}</td></tr>`).join('');
+        }
+
+        function displayBattleList(battles) {
+            if (battles.length === 0) {
+                battlesListContainer.innerHTML = '<p class="text-center text-gray-400">Son hafta içinde 15+ katılımcılı savaş bulunamadı.</p>'; return;
+            }
+            battlesListContainer.innerHTML = battles.map(battle => {
+                const winner = Object.values(battle.guilds).sort((a, b) => b.killFame - a.killFame)[0];
+                const isWinner = winner.id === GUILD_ID;
+                const battleTime = new Date(battle.startTime).toLocaleTimeString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                return `<div class="bg-gray-900/70 p-3 rounded-lg border-l-4 ${isWinner ? 'border-green-500' : 'border-red-500'} cursor-pointer hover:bg-gray-700" onclick="showBattleReport('${battle.id}')">
+                            <p class="font-bold">${Object.values(battle.guilds).map(g => g.name).join(' vs ')}</p>
+                            <p class="text-xs text-gray-400">${battle.totalPlayers} Katılımcı | ${battleTime}</p>
+                        </div>`;
+            }).join('');
+        }
+        
+        function showStatus(message, type) {
+            loader.style.display = 'none';
+            statusMessage.textContent = '';
+            if (type === 'loading') {
+                loader.style.display = 'block';
+                statusMessage.textContent = message;
+                statusMessage.className = 'text-gray-400 ml-4';
+            } else if (type === 'error') {
+                statusMessage.textContent = message;
+                statusMessage.className = 'text-red-400 font-semibold';
+            }
+        }
+
+        function displayTrackingDashboard(members, battles) {
+            const riskyPlayers = new Map();
+            battles.forEach(battle => {
+                if (battle.players) {
+                    Object.values(battle.players).forEach(player => {
+                        if (player.guildId === GUILD_ID && player.deaths > 0) {
+                            if (!riskyPlayers.has(player.name)) {
+                                riskyPlayers.set(player.name, { name: player.name, deathCount: 0 });
+                            }
+                            riskyPlayers.get(player.name).deathCount += player.deaths;
+                        }
+                    });
+                }
+            });
+
+            const sortedRisky = [...riskyPlayers.values()].sort((a, b) => b.deathCount - a.deathCount);
+            if (sortedRisky.length > 0) {
+                riskyListContainer.innerHTML = `<ul class="space-y-2">${sortedRisky.map(p => `<li class="flex justify-between items-center bg-gray-700/50 p-2 rounded-md text-sm"><span class="font-medium text-white">${p.name}</span><span class="font-semibold text-orange-400">${p.deathCount} ölüm</span></li>`).join('')}</ul>`;
+            } else {
+                riskyListContainer.innerHTML = '<p class="text-center text-gray-400">Riskli oyuncu bulunamadı.</p>';
+            }
+        }
+
+        async function startInactiveAnalysis() {
+            inactiveCheckBtn.disabled = true;
+            inactiveListContainer.innerHTML = '<div class="flex flex-col items-center gap-2"><div class="loader"></div><p class="text-sm text-gray-400">Oyuncular analiz ediliyor... Bu işlem birkaç dakika sürebilir.</p></div>';
+            
+            const inactivePlayers = [];
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            for (const member of guildMembersData) {
+                try {
+                    const [kills, deaths] = await Promise.all([
+                        fetchApi(`/players/${member.Id}/kills?limit=1`),
+                        fetchApi(`/players/${member.Id}/deaths?limit=1`)
+                    ]);
+                    
+                    const lastKillTime = kills.length > 0 ? new Date(kills[0].TimeStamp) : new Date(0);
+                    const lastDeathTime = deaths.length > 0 ? new Date(deaths[0].TimeStamp) : new Date(0);
+                    const lastActivity = Math.max(lastKillTime, lastDeathTime);
+
+                    if (new Date(lastActivity) < sevenDaysAgo) {
+                        inactivePlayers.push({ name: member.Name, lastActivity: new Date(lastActivity) });
+                    }
+                    await sleep(300); 
+                } catch (error) {
+                    console.error(`${member.Name} için aktivite kontrolü başarısız:`, error);
+                }
+            }
+
+            if (inactivePlayers.length > 0) {
+                inactiveListContainer.innerHTML = `<ul class="space-y-2 alert-list max-h-80 overflow-y-auto">${inactivePlayers.map(p => `<li class="flex justify-between items-center bg-gray-700/50 p-2 rounded-md text-sm"><span class="font-medium text-white">${p.name}</span><span class="text-xs text-gray-400">Son aktivite: ${p.lastActivity.getFullYear() < 2000 ? 'Bilinmiyor' : p.lastActivity.toLocaleDateString('tr-TR')}</span></li>`).join('')}</ul>`;
+            } else {
+                inactiveListContainer.innerHTML = '<p class="text-center text-gray-400">İnaktif oyuncu bulunamadı.</p>';
+            }
+            inactiveCheckBtn.disabled = false;
+        }
+
+        // --- YARDIMCI FONKSİYONLAR (MODAL İÇİN) ---
+        function createFameBar(label, value, maxValue) {
+            const percentage = Math.min(((value || 0) / (maxValue || value || 1)) * 100, 100);
+            return `<div><div class="flex justify-between mb-1"><span class="text-sm font-medium text-gray-300">${label}</span><span class="text-sm font-medium text-gray-400">${(value || 0).toLocaleString('tr-TR')}</span></div><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-red-500 h-2.5 rounded-full" style="width: ${percentage}%"></div></div></div>`;
+        }
+
+        function analyzeEquipment(kills) {
+            const equipmentSlots = ['MainHand', 'OffHand', 'Head', 'Armor', 'Shoes', 'Cape'];
+            const equipmentCount = {};
+            kills.forEach(kill => {
+                if (kill.Killer.Equipment) {
+                    equipmentSlots.forEach(slot => {
+                        const item = kill.Killer.Equipment[slot];
+                        if (item) {
+                            if (!equipmentCount[slot]) equipmentCount[slot] = {};
+                            equipmentCount[slot][item.Type] = (equipmentCount[slot][item.Type] || 0) + 1;
+                        }
+                    });
+                }
+            });
+            const topEquipment = {};
+            equipmentSlots.forEach(slot => {
+                if (equipmentCount[slot]) {
+                    const topItem = Object.entries(equipmentCount[slot]).sort((a, b) => b[1] - a[1])[0];
+                    topEquipment[slot] = { Type: topItem[0] };
+                }
+            });
+            return topEquipment;
+        }
+
+        function createEventHtml(event, type) {
+            const isKill = type === 'kill';
+            const target = isKill ? event.Victim : event.Killer;
+            const fame = event.KillFame || 0;
+            const targetName = target.Name;
+            const targetGuild = target.GuildName;
+            const item = isKill ? event.Victim?.Equipment?.MainHand : event.Killer?.Equipment?.MainHand;
+            return `<li class="flex items-center justify-between bg-gray-700/50 p-2 rounded-md text-sm"><div class="flex items-center gap-3">${item ? `<img src="${RENDER_URL}${item.Type}.png" class="w-8 h-8 rounded bg-gray-800">` : '<div class="w-8 h-8 rounded bg-gray-800"></div>'}<div><p class="font-semibold text-white">${targetName}</p><p class="text-xs text-gray-400">[${targetGuild}]</p></div></div><span class="font-bold ${isKill ? 'text-green-400' : 'text-red-400'}">${fame.toLocaleString('tr-TR')} Fame</span></li>`;
+        }
+    </script>
+</body>
+</html>
