@@ -80,15 +80,12 @@
             </nav>
         </header>
 
-        <!-- Durum Mesajları ve Yükleyici -->
+        <!-- Diğer HTML içeriği aynı kalacak... -->
         <div id="status-container" class="flex justify-center items-center my-8 h-24">
             <div id="loader" class="loader"></div>
             <div id="status-message" class="text-center text-lg"></div>
         </div>
-
-        <!-- Sayfa İçerikleri -->
         <main id="content-container" class="hidden opacity-0 transition-opacity duration-500">
-            <!-- DASHBOARD SAYFASI -->
             <div id="dashboard-page">
                 <div id="guild-info" class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 p-6 rounded-xl shadow-lg max-w-5xl mx-auto mb-8"></div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -99,8 +96,6 @@
                     <div id="top-deaths" class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl"></div>
                 </div>
             </div>
-
-            <!-- ÜYE LİSTESİ SAYFASI -->
             <div id="members-page" class="hidden">
                  <div class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-lg p-4 sm:p-6">
                     <h2 class="text-2xl font-bold mb-4 text-center text-red-400">Guild Üye Listesi</h2>
@@ -121,12 +116,16 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- SAVAŞLAR SAYFASI -->
             <div id="battles-page" class="hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-1 bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
-                        <h2 class="text-xl font-bold text-red-400 mb-4">Son Haftanın Önemli Savaşları</h2>
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-red-400">Son Ayın Savaşları</h2>
+                            <div class="flex items-center gap-2">
+                                <label for="battle-filter-input" class="text-sm text-gray-400">Min. Katılımcı:</label>
+                                <input type="number" id="battle-filter-input" value="0" min="0" class="bg-gray-900 text-white w-20 text-center rounded-md border border-gray-600 focus:ring-red-500 focus:border-red-500">
+                            </div>
+                        </div>
                         <div id="battles-list-container" class="battle-list space-y-3 max-h-[70vh] overflow-y-auto pr-2"></div>
                     </div>
                     <div id="battle-report-container" class="lg:col-span-2 bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
@@ -134,8 +133,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- TAKİP SAYFASI -->
             <div id="tracking-page" class="hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
@@ -146,7 +143,7 @@
                     </div>
                     <div class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
                         <h3 class="text-lg font-bold text-orange-400 mb-3">Riskli Oyuncular</h3>
-                        <p class="text-sm text-gray-400 mb-4">Son haftadaki büyük savaşlarda (15+ katılımcı) ölen guild üyeleri.</p>
+                        <p class="text-sm text-gray-400 mb-4">Son aydaki savaşlarda ölen guild üyeleri.</p>
                         <div id="risky-list-container" class="mt-4 alert-list max-h-80 overflow-y-auto"></div>
                     </div>
                 </div>
@@ -157,8 +154,6 @@
             </div>
         </main>
     </div>
-
-    <!-- Oyuncu Profili Modalı -->
     <div id="player-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div id="modal-content" class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center p-4 border-b border-gray-700">
@@ -172,6 +167,7 @@
     <script>
         // --- GLOBAL DEĞİŞKENLER ---
         let guildMembersData = [];
+        let allGuildBattles = [];
         
         // --- DOM ELEMENTLERİ ---
         const loginOverlay = document.getElementById('login-overlay');
@@ -196,6 +192,7 @@
         const trackingPage = document.getElementById('tracking-page');
         const battlesListContainer = document.getElementById('battles-list-container');
         const battleReportContainer = document.getElementById('battle-report-container');
+        const battleFilterInput = document.getElementById('battle-filter-input');
         const playerModal = document.getElementById('player-modal');
         const modalCloseBtn = document.getElementById('modal-close-btn');
         const modalPlayerName = document.getElementById('modal-player-name');
@@ -214,17 +211,12 @@
         function setupLogin() {
             loginButton.addEventListener('click', checkPassword);
             passwordInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    checkPassword();
-                }
+                if (e.key === 'Enter') checkPassword();
             });
         }
 
         function checkPassword() {
-            // Şifreyi buradan değiştirebilirsin.
-            // Bu yöntem en güvenlisi değildir, ancak basit bir koruma sağlar.
             const CORRECT_PASSWORD = 'supremacy'; 
-            
             if (passwordInput.value === CORRECT_PASSWORD) {
                 loginOverlay.classList.add('hidden');
                 mainPanel.classList.remove('hidden');
@@ -239,30 +231,25 @@
             setupNavigation();
             setupModal();
             showStatus('Guild verileri yükleniyor...', 'loading');
-
             try {
                 const [guildDetails, guildMembers] = await Promise.all([
                     fetchApi(`/guilds/${GUILD_ID}`),
                     fetchApi(`/guilds/${GUILD_ID}/members`),
                 ]);
-
                 showStatus('Savaş verileri taranıyor...', 'loading');
                 const battles = await fetchAllBattles();
-
                 guildMembersData = guildMembers;
-                const guildBattles = battles.filter(battle => battle.guilds && battle.guilds[GUILD_ID]);
-                const importantBattles = guildBattles.filter(b => b.totalPlayers >= 15);
-
+                allGuildBattles = battles.filter(battle => battle.guilds && battle.guilds[GUILD_ID]);
+                
                 displayGuildInfo(guildDetails);
                 displayDashboard(guildMembers);
                 displayMembers(guildMembers);
-                displayBattleList(importantBattles);
-                displayTrackingDashboard(guildMembers, importantBattles);
+                displayBattleList(allGuildBattles); 
+                displayTrackingDashboard(guildMembers, allGuildBattles);
 
                 statusContainer.classList.add('hidden');
                 contentContainer.classList.remove('hidden');
                 setTimeout(() => contentContainer.classList.remove('opacity-0'), 50);
-
             } catch (error) {
                 console.error('Veri çekme hatası:', error);
                 showStatus('Lonca bilgileri getirilemedi. Lütfen sayfayı yenileyin.', 'error');
@@ -286,9 +273,9 @@
             }
             throw new Error(`API isteği ${retries} deneme sonrası başarısız: ${endpoint}`);
         }
-
-        // ... Diğer tüm JavaScript fonksiyonları (fetchAllBattles, setupNavigation, showPage, vb.) aynı kalacak ...
-        async function fetchAllBattles(range = 'week', limit = 51) {
+        
+        // ... Diğer tüm JavaScript fonksiyonları aynı kalacak ...
+        async function fetchAllBattles(range = 'month', limit = 51) {
             let allBattles = [];
             let offset = 0;
             while (true) {
@@ -297,7 +284,7 @@
                 allBattles = allBattles.concat(page);
                 if (page.length < limit) break;
                 offset += limit;
-                if (offset >= 1000) break;
+                if (offset >= 2000) break;
                 await sleep(200); 
             }
             return allBattles;
@@ -308,6 +295,7 @@
             navBattles.addEventListener('click', () => showPage('battles'));
             navTracking.addEventListener('click', () => showPage('tracking'));
             inactiveCheckBtn.addEventListener('click', startInactiveAnalysis);
+            battleFilterInput.addEventListener('input', applyBattleFilter);
         }
         function setupModal() {
             modalCloseBtn.addEventListener('click', () => playerModal.classList.add('hidden'));
@@ -323,18 +311,21 @@
             }
         }
         async function showPlayerProfile(playerId) {
-            const player = guildMembersData.find(m => m.Id === playerId);
-            if (!player) return;
-            modalPlayerName.textContent = player.Name;
+            modalPlayerName.textContent = 'Yükleniyor...';
             playerModal.classList.remove('hidden');
             modalBody.innerHTML = '<div class="flex justify-center items-center h-64"><div class="loader"></div></div>';
             try {
-                const [kills, deaths] = await Promise.all([
+                const [playerData, kills, deaths] = await Promise.all([
+                    fetchApi(`/players/${playerId}`),
                     fetchApi(`/players/${playerId}/kills`),
                     fetchApi(`/players/${playerId}/deaths`)
                 ]);
+                modalPlayerName.textContent = playerData.Name;
                 const equipment = analyzeEquipment(kills);
-                modalBody.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-1 space-y-6"><div><h3 class="text-lg font-bold text-red-400 mb-3">Fame Dağılımı</h3>${createFameBar('PvP', player.KillFame, player.KillFame + player.DeathFame)}${createFameBar('PvE', player.LifetimeStatistics.PvE.Total, 10000000)}${createFameBar('Toplama', player.LifetimeStatistics.Gathering.All.Total, 10000000)}</div><div><h3 class="text-lg font-bold text-red-400 mb-3">Sık Kullanılanlar</h3><div class="flex flex-wrap gap-2">${Object.entries(equipment).map(([slot, item]) => item ? `<img src="${RENDER_URL}${item.Type}.png?quality=3" alt="${item.Type}" class="w-12 h-12 bg-gray-700 rounded-md border border-gray-600" title="${slot}">` : '').join('')}</div></div></div><div class="lg:col-span-2 space-y-6"><div><h3 class="text-lg font-bold text-green-400 mb-3">Son Kills</h3><ul class="kill-list space-y-2 max-h-64 overflow-y-auto pr-2">${kills.length > 0 ? kills.map(k => createEventHtml(k, 'kill')).join('') : '<li class="text-gray-400">Kayıt bulunamadı.</li>'}</ul></div><div><h3 class="text-lg font-bold text-red-400 mb-3">Son Deaths</h3><ul class="kill-list space-y-2 max-h-64 overflow-y-auto pr-2">${deaths.length > 0 ? deaths.map(d => createEventHtml(d, 'death')).join('') : '<li class="text-gray-400">Kayıt bulunamadı.</li>'}</ul></div></div></div>`;
+                const kdRatio = playerData.DeathFame === 0 ? playerData.KillFame : (playerData.KillFame / playerData.DeathFame);
+                const pveRatio = playerData.FameRatio;
+                const ls = playerData.LifetimeStatistics;
+                modalBody.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-6"><div class="space-y-6"><div class="bg-gray-700/50 p-4 rounded-lg"><h3 class="text-lg font-bold text-red-400 mb-3">Genel Bilgiler</h3><div class="grid grid-cols-2 gap-2 text-sm"><span class="text-gray-400">Guild:</span> <span class="font-semibold">${playerData.GuildName}</span><span class="text-gray-400">İttifak:</span> <span class="font-semibold">${playerData.AllianceName}</span><span class="text-gray-400">K/D Oranı:</span> <span class="font-semibold">${kdRatio.toFixed(2)}</span><span class="text-gray-400">Fame Oranı:</span> <span class="font-semibold">${pveRatio.toFixed(2)}</span></div></div><div class="bg-gray-700/50 p-4 rounded-lg"><h3 class="text-lg font-bold text-red-400 mb-3">Fame İstatistikleri</h3><div class="grid grid-cols-2 gap-2 text-sm"><span class="text-gray-400">Toplam Fame:</span> <span class="font-semibold">${(playerData.KillFame + ls.PvE.Total).toLocaleString('tr-TR')}</span><span class="text-gray-400">Kill Fame:</span> <span class="font-semibold">${playerData.KillFame.toLocaleString('tr-TR')}</span><span class="text-gray-400">Death Fame:</span> <span class="font-semibold">${playerData.DeathFame.toLocaleString('tr-TR')}</span><span class="text-gray-400">PvE Fame:</span> <span class="font-semibold">${ls.PvE.Total.toLocaleString('tr-TR')}</span></div></div><div class="bg-gray-700/50 p-4 rounded-lg"><h3 class="text-lg font-bold text-red-400 mb-3">Sık Kullanılanlar</h3><div class="flex flex-wrap gap-2">${Object.entries(equipment).map(([slot, item]) => item ? `<img src="${RENDER_URL}${item.Type}.png?quality=3" alt="${item.Type}" class="w-12 h-12 bg-gray-900 rounded-md border border-gray-600" title="${slot}">` : '').join('')}</div></div></div><div class="space-y-6"><div class="bg-gray-700/50 p-4 rounded-lg"><h3 class="text-lg font-bold text-red-400 mb-3">Aktiviteye Göre Fame</h3><div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><span class="text-gray-400">Royal:</span> <span class="font-semibold">${(ls.PvE.Royal || 0).toLocaleString('tr-TR')}</span><span class="text-gray-400">Outlands:</span> <span class="font-semibold">${(ls.PvE.Outlands || 0).toLocaleString('tr-TR')}</span><span class="text-gray-400">Avalon:</span> <span class="font-semibold">${(ls.PvE.Avalon || 0).toLocaleString('tr-TR')}</span><span class="text-gray-400">Hellgate:</span> <span class="font-semibold">${(ls.Hellgate || 0).toLocaleString('tr-TR')}</span><span class="text-gray-400">Corrupted:</span> <span class="font-semibold">${(ls.PvE.CorruptedDungeon || 0).toLocaleString('tr-TR')}</span><span class="text-gray-400">Toplama:</span> <span class="font-semibold">${(ls.Gathering.All.Total || 0).toLocaleString('tr-TR')}</span><span class="text-gray-400">Üretim:</span> <span class="font-semibold">${(ls.Crafting.Total || 0).toLocaleString('tr-TR')}</span><span class="text-gray-400">Balıkçılık:</span> <span class="font-semibold">${(ls.FishingFame || 0).toLocaleString('tr-TR')}</span></div></div><div><h3 class="text-lg font-bold text-green-400 mb-2">Son Kills</h3><ul class="kill-list space-y-2 max-h-48 overflow-y-auto pr-2">${kills.length > 0 ? kills.slice(0,10).map(k => createEventHtml(k, 'kill')).join('') : '<li class="text-gray-400">Kayıt bulunamadı.</li>'}</ul></div><div><h3 class="text-lg font-bold text-red-400 mb-2">Son Deaths</h3><ul class="kill-list space-y-2 max-h-48 overflow-y-auto pr-2">${deaths.length > 0 ? deaths.slice(0,10).map(d => createEventHtml(d, 'death')).join('') : '<li class="text-gray-400">Kayıt bulunamadı.</li>'}</ul></div></div></div>`;
             } catch (error) {
                 console.error("Profil verisi çekilemedi:", error);
                 modalBody.innerHTML = '<p class="text-red-400 text-center">Oyuncu profili yüklenemedi.</p>';
@@ -388,7 +379,7 @@
         }
         function displayBattleList(battles) {
             if (battles.length === 0) {
-                battlesListContainer.innerHTML = '<p class="text-center text-gray-400">Son hafta içinde 15+ katılımcılı savaş bulunamadı.</p>'; return;
+                battlesListContainer.innerHTML = '<p class="text-center text-gray-400">Filtreye uygun savaş bulunamadı.</p>'; return;
             }
             battlesListContainer.innerHTML = battles.map(battle => {
                 const winner = Object.values(battle.guilds).sort((a, b) => b.killFame - a.killFame)[0];
@@ -399,6 +390,11 @@
                             <p class="text-xs text-gray-400">${battle.totalPlayers} Katılımcı | ${battleTime}</p>
                         </div>`;
             }).join('');
+        }
+        function applyBattleFilter() {
+            const minPlayers = parseInt(battleFilterInput.value, 10) || 0;
+            const filteredBattles = allGuildBattles.filter(b => b.totalPlayers >= minPlayers);
+            displayBattleList(filteredBattles);
         }
         function showStatus(message, type) {
             loader.style.display = 'none';
@@ -462,10 +458,6 @@
                 inactiveListContainer.innerHTML = '<p class="text-center text-gray-400">İnaktif oyuncu bulunamadı.</p>';
             }
             inactiveCheckBtn.disabled = false;
-        }
-        function createFameBar(label, value, maxValue) {
-            const percentage = Math.min(((value || 0) / (maxValue || value || 1)) * 100, 100);
-            return `<div><div class="flex justify-between mb-1"><span class="text-sm font-medium text-gray-300">${label}</span><span class="text-sm font-medium text-gray-400">${(value || 0).toLocaleString('tr-TR')}</span></div><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-red-500 h-2.5 rounded-full" style="width: ${percentage}%"></div></div></div>`;
         }
         function analyzeEquipment(kills) {
             const equipmentSlots = ['MainHand', 'OffHand', 'Head', 'Armor', 'Shoes', 'Cape'];
