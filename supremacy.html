@@ -67,15 +67,12 @@
             </nav>
         </header>
 
-        <!-- Durum Mesajları ve Yükleyici -->
+        <!-- Diğer HTML içeriği aynı kalacak... -->
         <div id="status-container" class="flex justify-center items-center my-8 h-24">
             <div id="loader" class="loader"></div>
             <div id="status-message" class="text-center text-lg"></div>
         </div>
-
-        <!-- Sayfa İçerikleri -->
         <main id="content-container" class="hidden opacity-0 transition-opacity duration-500">
-            <!-- DASHBOARD SAYFASI -->
             <div id="dashboard-page">
                 <div id="guild-info" class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 p-6 rounded-xl shadow-lg max-w-5xl mx-auto mb-8"></div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -86,8 +83,6 @@
                     <div id="top-deaths" class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl"></div>
                 </div>
             </div>
-
-            <!-- ÜYE LİSTESİ SAYFASI -->
             <div id="members-page" class="hidden">
                  <div class="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-lg p-4 sm:p-6">
                     <h2 class="text-2xl font-bold mb-4 text-center text-red-400">Guild Üye Listesi</h2>
@@ -108,8 +103,6 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- SAVAŞLAR SAYFASI -->
             <div id="battles-page" class="hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-1 bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
@@ -121,8 +114,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- TAKİP SAYFASI -->
             <div id="tracking-page" class="hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-gray-800/50 border border-gray-700 p-5 rounded-xl">
@@ -144,8 +135,6 @@
             </div>
         </main>
     </div>
-
-    <!-- Oyuncu Profili Modalı -->
     <div id="player-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div id="modal-content" class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center p-4 border-b border-gray-700">
@@ -187,11 +176,7 @@
 
         // --- SABİTLER ---
         const GUILD_ID = 'MsXlz1fUQFySJSqG4HiGbA';
-        const BASE_URL = 'https://gameinfo-ams.albiononline.com/api/gameinfo';
         const RENDER_URL = 'https://render.albiononline.com/v1/item/';
-        const PROXY_URL = 'https://proxy.cors.sh/';
-        const API_KEY = 'temp_c2020bf1f34ac382b3647141b024d3a3';
-        const HEADERS = { 'x-cors-api-key': API_KEY };
         
         // --- UYGULAMA BAŞLATMA ---
         window.addEventListener('load', initializeApp);
@@ -226,18 +211,20 @@
 
             } catch (error) {
                 console.error('Veri çekme hatası:', error);
-                showStatus('Lonca bilgileri getirilemedi. Proxy servisi veya anahtar geçersiz olabilir.', 'error');
+                showStatus('Lonca bilgileri getirilemedi. Lütfen sayfayı yenileyin.', 'error');
             }
         }
 
-        // --- API İSTEK FONKSİYONU (Rate Limiting ile) ---
+        // --- API İSTEK FONKSİYONU (Vercel için güncellendi) ---
         const sleep = ms => new Promise(r => setTimeout(r, ms));
 
         async function fetchApi(endpoint, retries = 3) {
+            // Vercel'e özel: İstekleri kendi sunucumuzdaki /api/proxy endpoint'ine yapıyoruz.
+            const url = `/api/proxy?endpoint=${encodeURIComponent(endpoint)}`;
             for (let i = 0; i < retries; i++) {
-                const response = await fetch(`${PROXY_URL}${BASE_URL}${endpoint}`, { headers: HEADERS });
-                if (response.status === 429) {
-                    console.warn(`Rate limit hit for ${endpoint}. Retrying in ${i + 1}s...`);
+                const response = await fetch(url);
+                if (response.status === 429 || response.status === 503) { // Rate limit veya servis meşgul
+                    console.warn(`Rate limit/service unavailable for ${endpoint}. Retrying in ${i + 1}s...`);
                     await sleep(1000 * (i + 1));
                     continue;
                 }
@@ -246,7 +233,9 @@
             }
             throw new Error(`API isteği ${retries} deneme sonrası başarısız: ${endpoint}`);
         }
-
+        
+        // Diğer tüm JavaScript fonksiyonları (fetchAllBattles, setupNavigation, showPage, showPlayerProfile, showBattleReport, display..., create..., analyze... vb.) aynı kalacak.
+        // ... Önceki kodda bulunan tüm diğer JS fonksiyonları buraya kopyalanmalıdır ...
         async function fetchAllBattles(range = 'week', limit = 51) {
             let allBattles = [];
             let offset = 0;
@@ -261,8 +250,6 @@
             }
             return allBattles;
         }
-        
-        // --- NAVİGASYON VE MODAL ---
         function setupNavigation() {
             navDashboard.addEventListener('click', () => showPage('dashboard'));
             navMembers.addEventListener('click', () => showPage('members'));
@@ -270,12 +257,10 @@
             navTracking.addEventListener('click', () => showPage('tracking'));
             inactiveCheckBtn.addEventListener('click', startInactiveAnalysis);
         }
-        
         function setupModal() {
             modalCloseBtn.addEventListener('click', () => playerModal.classList.add('hidden'));
             playerModal.addEventListener('click', (e) => { if (e.target === playerModal) playerModal.classList.add('hidden'); });
         }
-
         function showPage(pageName) {
             const pages = { dashboard: dashboardPage, members: membersPage, battles: battlesPage, tracking: trackingPage };
             const navs = { dashboard: navDashboard, members: navMembers, battles: navBattles, tracking: navTracking };
@@ -286,7 +271,6 @@
                 navs[page].classList.toggle('text-gray-400', page !== pageName);
             }
         }
-
         async function showPlayerProfile(playerId) {
             const player = guildMembersData.find(m => m.Id === playerId);
             if (!player) return;
@@ -333,7 +317,6 @@
                 modalBody.innerHTML = '<p class="text-red-400 text-center">Oyuncu profili yüklenemedi.</p>';
             }
         }
-
         async function showBattleReport(battleId) {
             battleReportContainer.innerHTML = '<div class="flex items-center justify-center h-full"><div class="loader"></div></div>';
             try {
@@ -394,12 +377,9 @@
                 battleReportContainer.innerHTML = '<div class="flex items-center justify-center h-full text-red-400">Savaş raporu yüklenemedi.</div>';
             }
         }
-
-        // --- GÖRÜNÜM FONKSİYONLARI ---
         function displayGuildInfo(guild) {
              guildInfoDiv.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center"><div><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Lonca Adı</h3><p class="text-xl font-bold text-white mt-1">${guild.Name}</p></div><div><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">İttifak</h3><p class="text-xl font-bold text-white mt-1">[${guild.AllianceTag || 'Yok'}]</p></div><div><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Üye Sayısı</h3><p class="text-xl font-bold text-red-400 mt-1">${guild.MemberCount}</p></div></div>`;
         }
-        
         function displayDashboard(members) {
             const sortedByTotalFame = [...members].map(m => ({...m, TotalFame: m.KillFame + (m.LifetimeStatistics.PvE.Total || 0) + (m.LifetimeStatistics.Gathering.All.Total || 0) + (m.LifetimeStatistics.Crafting.Total || 0)})).sort((a, b) => b.TotalFame - a.TotalFame);
             createTopPlayerCard('top-contributors', 'En Çok Katkı Yapanlar', sortedByTotalFame, m => m.TotalFame);
@@ -408,18 +388,15 @@
             createTopPlayerCard('top-gathering', 'En İyi Toplayıcılar', [...members].sort((a, b) => (b.LifetimeStatistics.Gathering.All.Total || 0) - (a.LifetimeStatistics.Gathering.All.Total || 0)), m => m.LifetimeStatistics.Gathering.All.Total);
             createTopPlayerCard('top-deaths', 'En Çok Ölenler (Fame)', [...members].sort((a, b) => b.DeathFame - a.DeathFame), m => m.DeathFame);
         }
-
         function createTopPlayerCard(elementId, title, sortedMembers, valueSelector) {
             const container = document.getElementById(elementId);
             let listHtml = sortedMembers.slice(0, 5).map((member, index) => `<li class="flex justify-between items-center py-2 px-3 rounded-md ${index % 2 === 0 ? 'bg-gray-700/50' : ''}"><span class="font-medium text-gray-200">${index + 1}. ${member.Name}</span><span class="font-bold text-red-400">${(valueSelector(member) || 0).toLocaleString('tr-TR')}</span></li>`).join('');
             container.innerHTML = `<h3 class="text-lg font-bold text-red-400 mb-3">${title}</h3><ul class="space-y-1">${listHtml}</ul>`;
         }
-
         function displayMembers(members) {
             members.sort((a, b) => b.KillFame - a.KillFame);
             memberListBody.innerHTML = members.map(member => `<tr class="hover:bg-gray-700/50 transition-colors duration-200 cursor-pointer" onclick="showPlayerProfile('${member.Id}')"><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">${member.Name}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-red-400 font-semibold">${member.KillFame.toLocaleString('tr-TR')}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${member.DeathFame.toLocaleString('tr-TR')}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${(member.LifetimeStatistics.PvE.Total || 0).toLocaleString('tr-TR')}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${(member.LifetimeStatistics.Gathering.All.Total || 0).toLocaleString('tr-TR')}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">${(member.LifetimeStatistics.Crafting.Total || 0).toLocaleString('tr-TR')}</td></tr>`).join('');
         }
-
         function displayBattleList(battles) {
             if (battles.length === 0) {
                 battlesListContainer.innerHTML = '<p class="text-center text-gray-400">Son hafta içinde 15+ katılımcılı savaş bulunamadı.</p>'; return;
@@ -434,7 +411,6 @@
                         </div>`;
             }).join('');
         }
-        
         function showStatus(message, type) {
             loader.style.display = 'none';
             statusMessage.textContent = '';
@@ -447,7 +423,6 @@
                 statusMessage.className = 'text-red-400 font-semibold';
             }
         }
-
         function displayTrackingDashboard(members, battles) {
             const riskyPlayers = new Map();
             battles.forEach(battle => {
@@ -470,7 +445,6 @@
                 riskyListContainer.innerHTML = '<p class="text-center text-gray-400">Riskli oyuncu bulunamadı.</p>';
             }
         }
-
         async function startInactiveAnalysis() {
             inactiveCheckBtn.disabled = true;
             inactiveListContainer.innerHTML = '<div class="flex flex-col items-center gap-2"><div class="loader"></div><p class="text-sm text-gray-400">Oyuncular analiz ediliyor... Bu işlem birkaç dakika sürebilir.</p></div>';
@@ -506,13 +480,10 @@
             }
             inactiveCheckBtn.disabled = false;
         }
-
-        // --- YARDIMCI FONKSİYONLAR (MODAL İÇİN) ---
         function createFameBar(label, value, maxValue) {
             const percentage = Math.min(((value || 0) / (maxValue || value || 1)) * 100, 100);
             return `<div><div class="flex justify-between mb-1"><span class="text-sm font-medium text-gray-300">${label}</span><span class="text-sm font-medium text-gray-400">${(value || 0).toLocaleString('tr-TR')}</span></div><div class="w-full bg-gray-700 rounded-full h-2.5"><div class="bg-red-500 h-2.5 rounded-full" style="width: ${percentage}%"></div></div></div>`;
         }
-
         function analyzeEquipment(kills) {
             const equipmentSlots = ['MainHand', 'OffHand', 'Head', 'Armor', 'Shoes', 'Cape'];
             const equipmentCount = {};
@@ -536,7 +507,6 @@
             });
             return topEquipment;
         }
-
         function createEventHtml(event, type) {
             const isKill = type === 'kill';
             const target = isKill ? event.Victim : event.Killer;
