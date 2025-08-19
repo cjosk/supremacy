@@ -275,6 +275,11 @@
     </div>
 
     <script>
+        // --- Supabase Client Kurulumu ---
+        const supabaseUrl = 'https://pzqhhoenqdipqhzeeces.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cWhob2VucWRpcHFoemVlY2VzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NTk2MzAsImV4cCI6MjA3MTEzNTYzMH0.6Q78bfMf7A0RwbhDigBk6wDMhk815u4NU9ucejX6UG0';
+        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
         // --- GLOBAL DEĞİŞKENLER ---
         let guildMembersData = [];
         let allGuildBattles = [];
@@ -414,26 +419,49 @@
             setupModal();
             showStatus('Guild verileri yükleniyor...', 'loading');
             try {
-                const [guildDetails, guildMembers] = await Promise.all([
-                    fetchApi(`/guilds/${GUILD_ID}`),
-                    fetchApi(`/guilds/${GUILD_ID}/members`),
-                ]);
+                // Verileri Supabase'den çek
+                const { data: members, error } = await supabase
+                    .from('guild_members')
+                    .select(`
+                        players ( player_id, player_name ),
+                        fame_history ( pvp_fame, pve_fame, gather_fame, craft_fame )
+                    `)
+                    .eq('is_active', true)
+                    .order('created_at', { foreignTable: 'fame_history', ascending: false })
+                    .limit(1, { foreignTable: 'fame_history' });
+
+                if (error) throw error;
+
+                // Veriyi panelin beklediği formata dönüştür
+                guildMembersData = members.map(m => ({
+                    Id: m.players.player_id,
+                    Name: m.players.player_name,
+                    KillFame: m.fame_history[0]?.pvp_fame || 0,
+                    DeathFame: 0, // Bu veri için ayrı bir sorgu gerekebilir
+                    LifetimeStatistics: {
+                        PvE: { Total: m.fame_history[0]?.pve_fame || 0 },
+                        Gathering: { All: { Total: m.fame_history[0]?.gather_fame || 0 } },
+                        Crafting: { Total: m.fame_history[0]?.craft_fame || 0 }
+                    }
+                }));
                 
-                guildMembersData = guildMembers;
-                
-                displayGuildInfo(guildDetails, guildMembers);
-                displayDashboard(guildMembers);
-                displayMembers(guildMembers);
+                // Guild genel bilgileri için dummy data (bu da bot ile senkronize edilebilir)
+                const guildDetails = { Name: "Team Supremacy", MemberCount: guildMembersData.length };
+
+                displayGuildInfo(guildDetails, guildMembersData);
+                displayDashboard(guildMembersData);
+                displayMembers(guildMembersData);
                 
                 displayBattleList([]); 
-                displayTrackingDashboard(guildMembers, []);
+                displayTrackingDashboard(guildMembersData, []);
 
                 statusContainer.classList.add('hidden');
                 contentContainer.classList.remove('hidden');
                 setTimeout(() => contentContainer.classList.remove('opacity-0'), 50);
+
             } catch (error) {
                 console.error('Veri çekme hatası:', error);
-                showStatus('Lonca bilgileri getirilemedi. Lütfen sayfayı yenileyin.', 'error');
+                showStatus('Veritabanından lonca bilgileri getirilemedi.', 'error');
             }
         }
 
@@ -479,15 +507,21 @@
             riskyListContainer.innerHTML = '<div class="flex justify-center items-center h-full"><div class="loader"></div></div>';
             
             try {
-                const battles = await fetchAllBattles();
-                allGuildBattles = battles.filter(battle => battle.guilds && battle.guilds[GUILD_ID]);
+                const { data: battles, error } = await supabase
+                    .from('battles')
+                    .select('*')
+                    .order('start_time', { ascending: false })
+                    .limit(100);
+
+                if (error) throw error;
+
+                allGuildBattles = battles; // Bu verinin işlenmesi gerekebilir
                 displayBattleList(allGuildBattles);
                 displayTrackingDashboard(guildMembersData, allGuildBattles);
             } catch (error) {
                 console.error("Savaş verileri çekilemedi:", error);
-                battlesListContainer.innerHTML = `<p class="text-red-400 text-center">${originalBattleText}</p>`;
-                riskyListContainer.innerHTML = `<p class="text-red-400 text-center">${originalRiskyText}</p>`;
-                battlesLoaded = false; 
+                battlesListContainer.innerHTML = `<p class="text-red-400 text-center">Savaş verileri yüklenemedi.</p>`;
+                battlesLoaded = false;
             }
         }
         function setupNavigation() {
@@ -907,6 +941,7 @@
                 }).join('');
             }
         }
+        
         async function performSearch() {
             const query = searchInput.value.trim();
             if (!query) return;
