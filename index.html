@@ -195,7 +195,7 @@
                     </div>
                     <div class="flex flex-col md:flex-row gap-6">
                         <div id="role-sidebar" class="w-full md:w-1/3 lg:w-1/4 bg-gray-900/50 p-4 rounded-lg border border-gray-700 flex-shrink-0 space-y-4 overflow-y-auto max-h-[70vh]">
-                           <!-- Roller buraya eklenecek -->
+                            <!-- Roller buraya eklenecek -->
                         </div>
                         <div class="flex-grow flex flex-col md:flex-row gap-6">
                             <div class="flex-1">
@@ -420,18 +420,20 @@
             setupModal();
             showStatus('Guild verileri yükleniyor...', 'loading');
             try {
+                // *** FIX START: Added 'death_fame' to the select query ***
                 const { data: members, error } = await supabaseClient
                     .from('players')
                     .select(`
                         player_id,
                         player_name,
                         guild_members!inner(guild_id),
-                        fame_history(pvp_fame, pve_fame, gather_fame, craft_fame)
+                        fame_history(pvp_fame, death_fame, pve_fame, gather_fame, craft_fame)
                     `)
                     .eq('guild_members.is_active', true)
                     .eq('guild_members.guild_id', GUILD_ID)
                     .order('created_at', { foreignTable: 'fame_history', ascending: false })
                     .limit(1, { foreignTable: 'fame_history' });
+                // *** FIX END ***
 
                 if (error) throw error;
 
@@ -439,7 +441,9 @@
                     Id: player.player_id,
                     Name: player.player_name,
                     KillFame: player.fame_history[0]?.pvp_fame || 0,
-                    DeathFame: 0,
+                    // *** FIX START: Changed hardcoded 0 to fetch from the database ***
+                    DeathFame: player.fame_history[0]?.death_fame || 0,
+                    // *** FIX END ***
                     LifetimeStatistics: {
                         PvE: { Total: player.fame_history[0]?.pve_fame || 0 },
                         Gathering: { All: { Total: player.fame_history[0]?.gather_fame || 0 } },
@@ -958,7 +962,7 @@
                         html += `<li class="p-3 bg-gray-800 rounded-lg">
                                     <p class="font-bold text-lg">${guild.Name} <span class="text-gray-400">[${guild.AllianceTag || 'N/A'}]</span></p>
                                     <p class="text-sm text-gray-400">Kill Fame: ${formatFame(guild.KillFame)} | ${guild.MemberCount} Üye</p>
-                                 </li>`;
+                                   </li>`;
                     });
                     html += '</ul>';
                 } else {
@@ -973,7 +977,7 @@
                         html += `<li class="p-3 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700" onclick="showPlayerProfile('${player.Id}')">
                                     <p class="font-bold text-lg">${player.Name} <span class="text-gray-400">[${player.GuildName || 'Guild Yok'}]</span></p>
                                     <p class="text-sm text-gray-400">Kill Fame: ${formatFame(player.KillFame)}</p>
-                                 </li>`;
+                                   </li>`;
                     });
                     html += '</ul>';
                 } else {
