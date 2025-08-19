@@ -420,14 +420,15 @@
             setupModal();
             showStatus('Guild verileri yükleniyor...', 'loading');
             try {
-                // *** FIX START: Added 'death_fame' to the select query ***
+                // *** FIX START: Moved death_fame from fame_history to players select ***
                 const { data: members, error } = await supabaseClient
                     .from('players')
                     .select(`
                         player_id,
                         player_name,
+                        death_fame,
                         guild_members!inner(guild_id),
-                        fame_history(pvp_fame, death_fame, pve_fame, gather_fame, craft_fame)
+                        fame_history(pvp_fame, pve_fame, gather_fame, craft_fame)
                     `)
                     .eq('guild_members.is_active', true)
                     .eq('guild_members.guild_id', GUILD_ID)
@@ -441,8 +442,8 @@
                     Id: player.player_id,
                     Name: player.player_name,
                     KillFame: player.fame_history[0]?.pvp_fame || 0,
-                    // *** FIX START: Changed hardcoded 0 to fetch from the database ***
-                    DeathFame: player.fame_history[0]?.death_fame || 0,
+                    // *** FIX START: Mapped death_fame from the player object directly ***
+                    DeathFame: player.death_fame || 0,
                     // *** FIX END ***
                     LifetimeStatistics: {
                         PvE: { Total: player.fame_history[0]?.pve_fame || 0 },
