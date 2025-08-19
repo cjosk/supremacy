@@ -276,7 +276,7 @@
 
     <script>
         // --- Supabase Client Kurulumu ---
-         const supabaseUrl = 'https://pzqhhoenqdipqhzeeces.supabase.co';
+        const supabaseUrl = 'https://pzqhhoenqdipqhzeeces.supabase.co';
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cWhob2VucWRpcHFoemVlY2VzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NTk2MzAsImV4cCI6MjA3MTEzNTYzMH0.6Q78bfMf7A0RwbhDigBk6wDMhk815u4NU9ucejX6UG0';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
 
@@ -420,26 +420,29 @@
             showStatus('Guild verileri yükleniyor...', 'loading');
             try {
                 const { data: members, error } = await supabaseClient
-                    .from('guild_members')
+                    .from('players')
                     .select(`
-                        players ( player_id, player_name ),
-                        fame_history ( pvp_fame, pve_fame, gather_fame, craft_fame )
+                        player_id,
+                        player_name,
+                        guild_members!inner(guild_id),
+                        fame_history(pvp_fame, pve_fame, gather_fame, craft_fame)
                     `)
-                    .eq('is_active', true)
+                    .eq('guild_members.is_active', true)
+                    .eq('guild_members.guild_id', GUILD_ID)
                     .order('created_at', { foreignTable: 'fame_history', ascending: false })
                     .limit(1, { foreignTable: 'fame_history' });
 
                 if (error) throw error;
 
-                guildMembersData = members.map(m => ({
-                    Id: m.players.player_id,
-                    Name: m.players.player_name,
-                    KillFame: m.fame_history[0]?.pvp_fame || 0,
-                    DeathFame: 0, 
+                guildMembersData = members.map(player => ({
+                    Id: player.player_id,
+                    Name: player.player_name,
+                    KillFame: player.fame_history[0]?.pvp_fame || 0,
+                    DeathFame: 0,
                     LifetimeStatistics: {
-                        PvE: { Total: m.fame_history[0]?.pve_fame || 0 },
-                        Gathering: { All: { Total: m.fame_history[0]?.gather_fame || 0 } },
-                        Crafting: { Total: m.fame_history[0]?.craft_fame || 0 }
+                        PvE: { Total: player.fame_history[0]?.pve_fame || 0 },
+                        Gathering: { All: { Total: player.fame_history[0]?.gather_fame || 0 } },
+                        Crafting: { Total: player.fame_history[0]?.craft_fame || 0 }
                     }
                 }));
                 
