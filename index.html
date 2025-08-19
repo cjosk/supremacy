@@ -278,7 +278,7 @@
         // --- Supabase Client Kurulumu ---
         const supabaseUrl = 'https://pzqhhoenqdipqhzeeces.supabase.co';
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6cWhob2VucWRpcHFoemVlY2VzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NTk2MzAsImV4cCI6MjA3MTEzNTYzMH0.6Q78bfMf7A0RwbhDigBk6wDMhk815u4NU9ucejX6UG0';
-        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
 
         // --- GLOBAL DEĞİŞKENLER ---
         let guildMembersData = [];
@@ -419,8 +419,7 @@
             setupModal();
             showStatus('Guild verileri yükleniyor...', 'loading');
             try {
-                // Verileri Supabase'den çek
-                const { data: members, error } = await supabase
+                const { data: members, error } = await supabaseClient
                     .from('guild_members')
                     .select(`
                         players ( player_id, player_name ),
@@ -432,12 +431,11 @@
 
                 if (error) throw error;
 
-                // Veriyi panelin beklediği formata dönüştür
                 guildMembersData = members.map(m => ({
                     Id: m.players.player_id,
                     Name: m.players.player_name,
                     KillFame: m.fame_history[0]?.pvp_fame || 0,
-                    DeathFame: 0, // Bu veri için ayrı bir sorgu gerekebilir
+                    DeathFame: 0, 
                     LifetimeStatistics: {
                         PvE: { Total: m.fame_history[0]?.pve_fame || 0 },
                         Gathering: { All: { Total: m.fame_history[0]?.gather_fame || 0 } },
@@ -445,7 +443,6 @@
                     }
                 }));
                 
-                // Guild genel bilgileri için dummy data (bu da bot ile senkronize edilebilir)
                 const guildDetails = { Name: "Team Supremacy", MemberCount: guildMembersData.length };
 
                 displayGuildInfo(guildDetails, guildMembersData);
@@ -507,7 +504,7 @@
             riskyListContainer.innerHTML = '<div class="flex justify-center items-center h-full"><div class="loader"></div></div>';
             
             try {
-                const { data: battles, error } = await supabase
+                const { data: battles, error } = await supabaseClient
                     .from('battles')
                     .select('*')
                     .order('start_time', { ascending: false })
@@ -515,7 +512,7 @@
 
                 if (error) throw error;
 
-                allGuildBattles = battles; // Bu verinin işlenmesi gerekebilir
+                allGuildBattles = battles; 
                 displayBattleList(allGuildBattles);
                 displayTrackingDashboard(guildMembersData, allGuildBattles);
             } catch (error) {
